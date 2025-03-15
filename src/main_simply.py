@@ -26,6 +26,21 @@ class SimpleChatApp:
             auto_scroll=True  # Автопрокрутка к новым сообщениям
         )
 
+        # Создание поля ввода telegram ника
+        self.telegram_input = ft.TextField(
+            expand=True,  # Расширение на доступную ширину
+            height=50,  # Высота поля ввода
+            multiline=False,  # Однострочный режим
+            text_size=16,  # Размер текста
+            color=ft.Colors.WHITE,  # Цвет текста
+            bgcolor=ft.Colors.GREY_800,  # Цвет фона поля
+            border_color=ft.Colors.BLUE_400,  # Цвет границы
+            cursor_color=ft.Colors.WHITE,  # Цвет курсора
+            content_padding=10,  # Внутренние отступы текста
+            border_radius=8,  # Радиус скругления углов
+            hint_text="Введите ник telegram..."  # Текст-подсказка в пустом поле
+        )
+
         # Создание поля ввода сообщения
         self.message_input = ft.TextField(
             expand=True,  # Расширение на доступную ширину
@@ -93,14 +108,25 @@ class SimpleChatApp:
             on_click=send_message  # Обработчик нажатия
         )
 
+        # Создание кнопки отправки telegram ника
+        telegram_button = ft.IconButton(
+            icon=ft.Icons.SEND_ROUNDED,  # Иконка отправки
+            icon_color=ft.Colors.YELLOW_900,  # Цвет иконки
+            on_click=send_message  # Обработчик нажатия
+        )
+
         # Добавление всех элементов на страницу
         page.add(
             ft.Container(
                 content=ft.Column([
                     self.chat_history,  # История чата
+                    ft.Row([  # Используем Row для размещения поля ввода и кнопки на одном уровне
+                        self.telegram_input,  # Поле ввода Telegram ника
+                        telegram_button  # Кнопка отправки Telegram ника
+                    ], alignment=ft.MainAxisAlignment.CENTER),  # Выравнивание по центру
                     ft.Row([
-                        self.message_input,  # Поле ввода
-                        send_button  # Кнопка отправки
+                        self.message_input,  # Поле ввода сообщения
+                        send_button  # Кнопка отправки сообщения
                     ], alignment=ft.MainAxisAlignment.CENTER)  # Выравнивание по центру
                 ]),
                 width=800,  # Базовая ширина контейнера

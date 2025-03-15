@@ -13,12 +13,12 @@ from src.ui.components import MessageBubble, ModelSelector  # Компонент
 from src.utils.cache import ChatCache                  # Модуль для кэширования истории чата
 from src.utils.logger import AppLogger                 # Модуль для логирования работы приложения
 from src.utils.analytics import Analytics              # Модуль для сбора и анализа статистики использования
+from utils.notification import notify_admin, email_notification      # Импорт функции уведомления
 import asyncio                                     # Библиотека для асинхронного программирования
 import time                                        # Библиотека для работы с временными метками
 import json                                        # Библиотека для работы с JSON-данными
 from datetime import datetime                      # Класс для работы с датой и временем
-from utils.notification import notify_admin  # Импорт функции уведомления
-
+import requests
 
 class ChatApp:
     """
@@ -41,7 +41,7 @@ class ChatApp:
         self.analytics = Analytics(self.cache)     # Инициализация системы аналитики с передачей кэша
 
         # Пороговое значение для уведомлений о балансе
-        self.balance_threshold = 10  # Например, уведомляем, если баланс ниже 10
+        self.balance_threshold = 1  # Например, уведомляем, если баланс ниже 1
 
         # Создание компонента для отображения баланса API
         self.balance_text = ft.Text(
@@ -55,35 +55,26 @@ class ChatApp:
         os.makedirs(self.exports_dir, exist_ok=True)  # Создание директории, если её нет
     
     def update_balance(self):
-        """
-        Обновление отображения баланса API в интерфейсе.
-        При успешном получении баланса показывает его зеленым цветом,
-        при ошибке - красным с текстом 'н/д' (не доступен).
-        """
-        try:
-            balance_str = self.api_client.get_balance()  # Запрос баланса через API (строка с символом $)
-    
-            if balance_str == "Ошибка":
+            """
+            Обновление отображения баланса API в интерфейсе.
+            При успешном получении баланса показывает его зеленым цветом,
+            при ошибке - красным с текстом 'н/д' (не доступен).
+            """
+            try:
+                balance = self.api_client.get_balance()         # Запрос баланса через API
+                self.balance_text.value = f"Баланс: {balance}"  # Обновление текста с балансом
+                self.balance_text.color = ft.Colors.GREEN_400   # Установка зеленого цвета для успешного получения
+            except Exception as e:
+                # Обработка ошибки получения баланса
+                self.balance_text.value = "Баланс: н/д"         # Установка текста ошибки
+                self.balance_text.color = ft.Colors.RED_400     # Установка красного цвета для ошибки
+                self.logger.error(f"Ошибка обновления баланса: {e}")
+
+            except Exception as e:
+                # Обработка ошибки получения баланса
                 self.balance_text.value = "Баланс: н/д"  # Установка текста ошибки
                 self.balance_text.color = ft.Colors.RED_400  # Установка красного цвета для ошибки
-                self.logger.error("Ошибка получения баланса")
-            else:
-                # Извлекаем числовое значение из строки, удаляя символ '$'
-                balance = float(balance_str.replace('$', ''))  # Преобразуем строку в число
-        
-                self.balance_text.value = f"Баланс: {balance_str}"  # Обновление текста с балансом
-                self.balance_text.color = ft.Colors.GREEN_400  # Установка зеленого цвета для успешного получения
-
-                # Проверка, если баланс ниже порогового значения, отправить уведомление
-            if balance < self.balance_threshold:
-                print(f"Баланс ниже порога: {balance}")  # Добавим лог
-                notify_admin(f"Внимание! Баланс слишком низкий: {balance} единиц.")  # Отправка уведомления
-
-        except Exception as e:
-            # Обработка ошибки получения баланса
-            self.balance_text.value = "Баланс: н/д"  # Установка текста ошибки
-            self.balance_text.color = ft.Colors.RED_400  # Установка красного цвета для ошибки
-            self.logger.error(f"Ошибка обновления баланса: {e}")
+                self.logger.error(f"Ошибка обновления баланса: {e}")
         
     def load_chat_history(self):
         """
@@ -108,7 +99,7 @@ class ChatApp:
                 ])
         except Exception as e:
             # Логирование ошибки при загрузке истории
-            self.logger.error(f"Ошибка загрузки истории чата: {e}")
+            self.logger.error(f"Ошибка загрузки истории чата: {e}")  
             
     def main(self, page: ft.Page):
         """
@@ -357,9 +348,43 @@ class ChatApp:
             except Exception as e:
                 self.logger.error(f"Ошибка сохранения: {e}")
                 show_error_snack(page, f"Ошибка сохранения: {str(e)}")
-
-    
-
+                
+        # Функция отправки сообщения в telegram        
+        async def send_telegram_notification(e):
+            try:
+                # Получение текущего баланса
+                balance_str = self.api_client.get_balance()
+                if balance_str == "Ошибка":
+                    balance = 0
+                else:
+                    balance = float(balance_str.replace('$', ''))
+                
+                # Если баланс ниже порогового значения, отправить уведомление
+                if balance < self.balance_threshold:
+                    await notify_admin(f"Внимание! Баланс слишком низкий: {balance} единиц.")
+                else:
+                    print("Баланс не ниже порогового значения")
+            except Exception as e:
+                print(f"Ошибка отправки уведомления: {e}")
+                
+        # Функция отправки сообщения на почту     
+        def send_email_notification(e,*args):
+            try:
+                # Получение текущего баланса
+                balance_str = self.api_client.get_balance()
+                if balance_str == "Ошибка":
+                    balance = 0
+                else:
+                    balance = float(balance_str.replace('$', ''))
+                
+                # Если баланс ниже порогового значения, отправить уведомление
+                if balance < self.balance_threshold:
+                    email_notification("Сообщение от Openrouter", "Внимание! Баланс слишком низкий: {balance} единиц.")
+                else:
+                    print("Баланс не ниже порогового значения")
+            except Exception as e:
+                print(f"Ошибка отправки уведомления: {e}")        
+                
         # Создание компонентов интерфейса
         self.message_input = ft.TextField(**AppStyles.MESSAGE_INPUT) # Поле ввода
         self.chat_history = ft.ListView(**AppStyles.CHAT_HISTORY)    # История чата
@@ -388,7 +413,26 @@ class ChatApp:
             **AppStyles.ANALYTICS_BUTTON    # Применение стилей
         )
 
+        telegram_button = ft.ElevatedButton(
+            on_click=send_telegram_notification,        # Привязка функции аналитики
+            **AppStyles.TELEGRAM_BUTTON    # Применение стилей
+        )
+
+        email_button = ft.ElevatedButton(
+            on_click=send_email_notification,        # Привязка функции аналитики
+            **AppStyles.EMAIL_BUTTON    # Применение стилей
+        )
         # Создание layout компонентов
+        
+        # Создание ряда кнопок управления отправки уведомления о балансе
+        balans_buttons = ft.Row(  
+            controls=[                      # Размещение кнопок в ряд
+                email_button,
+                telegram_button
+            ],
+            **AppStyles.BALANCE_BUTTONS_ROW # Применение стилей к ряду
+        )
+        
         
         # Создание ряда кнопок управления
         control_buttons = ft.Row(  
@@ -412,6 +456,7 @@ class ChatApp:
         # Создание колонки для элементов управления
         controls_column = ft.Column(
             controls=[                      # Размещение элементов управления
+                balans_buttons,
                 input_row,
                 control_buttons
             ],
@@ -434,7 +479,7 @@ class ChatApp:
             **AppStyles.MODEL_SELECTION_COLUMN   # Применение стилей к колонке
         )
 
-                # Создание основной колонки приложения
+        # Создание основной колонки приложения
         self.main_column = ft.Column(
             controls=[                            # Размещение основных элементов
                 model_selection,
@@ -448,6 +493,10 @@ class ChatApp:
         page.add(self.main_column)
         
         self.logger.info("Приложение запущено")
+
+    
+
+
 
 def main():
     """Точка входа в приложение"""
