@@ -41,11 +41,6 @@
    source venv/bin/activate
    ```
 
-5. **Настройка переменных окружения**
-   - Скопируйте файл `.env.example` в новый файл `.env`
-   - Откройте `.env` и замените `your_api_key_here` на ваш API ключ OpenRouter
-   - Остальные настройки можно оставить по умолчанию
-
 ## Сборка приложения
 
 ### Требования
@@ -78,7 +73,7 @@ pip install -r requirements.txt
 python3 build.py
 ```
 
-Исполняемый файл будет создан по пути `bin/aichat`
+Исполняемый файл будет создан по пути `build/aichat`
 
 3. Установка прав на выполнение:
 ```bash
@@ -89,15 +84,23 @@ chmod +x bin/aichat
 
 Создайте файл `.env` в корневой директории со следующим содержимым:
 ```
-OPENROUTER_API_KEY=ваш_api_ключ
+OPENROUTER_API_KEY="ваш ключ от openrouter"
 BASE_URL=https://openrouter.ai/api/v1
 DEBUG=False
 LOG_LEVEL=INFO
 MAX_TOKENS=1000
 TEMPERATURE=0.7
-TELEGRAM_API_TOKEN=YOUR_TELEGRAM_API (нужно ввести api telegram bota)
-TELEGRAM_USER_ID=YOUR_USER_ID ##(нужно ввести ваш ваш Telegram ID или ID группового чата куда будут присылаться уведомления)
-BALANCE_THRESHOLD=10
+
+# Токен для Telegram-бота
+TELEGRAM_API_TOKEN="нужно ввести api telegram bota"
+TELEGRAM_USER_ID="нужно ввести ваш ваш Telegram ID или ID группового чата куда будут присылаться уведомления"
+
+#Почта для уведомлений
+SMTP_SERVER="введите адрес SMTP-сервера"
+SMTP_PORT="введите порт SMTP-сервера"
+EMAIL_ADDRESS="введите ваш адрес с которой будет отправляться"
+EMAIL_PASSWORD="введите ваш пароль от электронной почты"
+ADMIN_EMAIL="введите адрес электронной почты куда будут приходить уведомления"
 ```
 
 ## Структура проекта
